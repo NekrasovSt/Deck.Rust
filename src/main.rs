@@ -1,10 +1,11 @@
 mod models;
 mod services;
+mod shuffles;
 mod tests;
 
-use actix_web::{get, post, delete, App, HttpResponse, HttpServer, Responder, web};
 use crate::models::deck::Deck;
 use crate::services::card_builder;
+use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
 
 #[get("/deck/{id}")]
 async fn get_id(web::Path(id): web::Path<u32>) -> impl Responder {
@@ -30,17 +31,22 @@ async fn get_by_name(web::Path(name): web::Path<String>) -> impl Responder {
 #[get("/deck/{id}/getCards")]
 async fn get_cards(web::Path(id): web::Path<u32>) -> impl Responder {
     web::Json(card_builder())
-    
-}#[get("/deck/{id}/getHumanizeCards")]
+}
+#[get("/deck/{id}/getHumanizeCards")]
 async fn get_humanize_cards(web::Path(id): web::Path<u32>) -> impl Responder {
-    web::Json(card_builder().iter().map(|card|{card.to_human()}).collect::<Vec<String>>().join(", "))
+    web::Json(
+        card_builder()
+            .iter()
+            .map(|card| card.to_human())
+            .collect::<Vec<String>>()
+            .join(", "),
+    )
 }
 
 #[delete("/deck/{id}")]
 async fn delete(web::Path(id): web::Path<u32>) -> impl Responder {
     HttpResponse::Ok().body(id.to_string())
-} 
-
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -54,7 +60,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete)
             .service(get_humanize_cards)
     })
-        .bind("127.0.0.1:8080")?
-        .run()
-        .await
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }

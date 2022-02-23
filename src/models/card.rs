@@ -2,7 +2,7 @@ use crate::models::card_type::CardType;
 use crate::models::suit::Suit;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone, PartialEq)]
 pub struct Card {
     pub card_type: CardType,
     pub suit: Suit,
@@ -11,12 +11,11 @@ pub struct Card {
 
 impl Card {
     fn symbol(&self) -> &str {
-        match self.suit
-        {
+        match self.suit {
             Suit::Clubs => "♣",
             Suit::Hearts => "♥",
             Suit::Spades => "♠",
-            Suit::Diamonds => "♦"
+            Suit::Diamonds => "♦",
         }
     }
     pub fn to_human(&self) -> String {

@@ -6,5 +6,5 @@ pub enum CardType {
     Jack,
     Queen,
     King,
-    Ace
+    Ace,
 }
