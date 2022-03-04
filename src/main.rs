@@ -34,6 +34,21 @@ async fn get_by_name(web::Path(name): web::Path<String>) -> impl Responder {
 
 #[get("/deck/{id}/getCards")]
 async fn get_cards(web::Path(id): web::Path<u32>) -> impl Responder {
+    web::Json(card_builder())
+}
+#[get("/deck/{id}/getHumanizeCards")]
+async fn get_humanize_cards(web::Path(id): web::Path<u32>) -> impl Responder {
+    web::Json(
+        card_builder()
+            .iter()
+            .map(|card| card.to_human())
+            .collect::<Vec<String>>()
+            .join(", "),
+    )
+}
+
+#[delete("/deck/{id}")]
+async fn delete(web::Path(id): web::Path<u32>) -> impl Responder {
     HttpResponse::Ok().body(id.to_string())
 }
 
@@ -47,6 +62,9 @@ async fn main() -> std::io::Result<()> {
             .service(get_by_name)
             .service(get_cards)
             .service(post)
+            .service(post)
+            .service(delete)
+            .service(get_humanize_cards)
     })
         .bind("127.0.0.1:8080")?
         .run()
