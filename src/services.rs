@@ -1,29 +1,27 @@
-use crate::models::card::Card;
-use crate::models::card_type::CardType;
-use crate::models::suit::Suit;
+use crate::models::card::{Card, NewCard};
 
-pub fn card_builder() -> Vec<Card> {
-    let numbers: [u8; 9] = [2, 3, 4, 5, 6, 7, 8, 9, 10];
-    let suits: [Suit; 4] = [Suit::Clubs, Suit::Hearts, Suit::Spades, Suit::Diamonds];
-    let types: [CardType; 4] = [
-        CardType::Jack,
-        CardType::Queen,
-        CardType::King,
-        CardType::Ace,
+pub fn card_builder() -> Vec<NewCard> {
+    let numbers: [i32; 9] = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let suits: [&str; 4] = ["Clubs", "Hearts", "Spades", "Diamonds"];
+    let types: [&str; 4] = [
+        "Jack",
+        "Queen",
+        "King",
+        "Ace",
     ];
     let mut cards = Vec::with_capacity(52);
     for suit in suits {
         for number in numbers {
-            cards.push(Card {
-                card_type: CardType::None,
-                suit,
+            cards.push(NewCard {
+                card_type: String::from("None"),
+                suit: String::from(suit),
                 number,
             })
         }
         for typ in types {
-            cards.push(Card {
-                card_type: typ,
-                suit,
+            cards.push(NewCard {
+                card_type: String::from(typ),
+                suit: String::from(suit),
                 number: 0,
             })
         }
