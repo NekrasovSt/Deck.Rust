@@ -1,7 +1,7 @@
 use std::env;
 use dotenv::dotenv;
 use diesel::{Connection, EqAll, insert_into, PgConnection, QueryDsl, RunQueryDsl};
-use crate::card_builder;
+use crate::services::card_builder;
 use crate::models::card::{Card};
 use crate::models::card_decks::CardDecks;
 use crate::models::deck::{Deck, NewDeck};
@@ -29,7 +29,7 @@ fn link(linked_deck_id: i32, connection: &PgConnection) -> Result<(), diesel::re
                 deck_id: linked_deck_id,
                 order: index as i32,
                 card_id: c.id,
-            }).execute(connection);
+            }).execute(connection)?;
     }
     Ok(())
 }
@@ -116,13 +116,18 @@ pub fn save_card(save_deck_id: i32, cards: Vec<i32>) -> Result<Vec<CardDecks>, S
 }
 
 
-pub fn init_db() {
+pub fn init_db() -> Result<(), String> {
     let connection = establish_connection();
-    embedded_migrations::run(&connection);
-    if crate::schema::cards::dsl::cards.load::<Card>(&connection).unwrap().len() == 0 {
+    embedded_migrations::run(&connection).
+        map_err(|err| err.to_string())?;
+    let cards = crate::schema::cards::dsl::cards.load::<Card>(&connection)
+        .map_err(|err| err.to_string())?;
+    if cards.len() == 0 {
         let new_cards = card_builder();
         insert_into(cards::table)
             .values(new_cards)
-            .execute(&connection);
+            .execute(&connection)
+            .map_err(|err| err.to_string())?;
     }
+    Ok(())
 }
