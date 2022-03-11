@@ -85,6 +85,7 @@ pub fn get_cards_by_deck(deck_id: i32) -> Result<Vec<Card>, String> {
     let connection = establish_connection();
     let result = card_decks::table.inner_join(cards::table)
         .select((cards::suit, cards::number, cards::card_type, cards::id))
+        .filter(crate::schema::card_decks::deck_id.eq_all(deck_id))
         .order(crate::db::card_decks::order)
         .load::<(String, i32, String, i32)>(&connection);
     match result {

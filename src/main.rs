@@ -9,7 +9,6 @@ mod schema;
 mod models;
 mod db;
 mod services;
-mod response;
 mod tests;
 
 use actix_web::{get, post, delete, put, App, HttpServer, Responder, web, error};
@@ -19,43 +18,57 @@ use crate::services::card_builder;
 
 #[post("/deck")]
 async fn post(new_deck: web::Json<NewDeck>) -> actix_web::Result<impl Responder> {
-    let deck = add_deck(&new_deck.name).map_err(error::ErrorBadRequest)?;
+    let deck = web::block(move || add_deck(&new_deck.name))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(deck))
 }
 
 #[get("/deck/{id}")]
 async fn get_id(web::Path(id): web::Path<i32>) -> actix_web::Result<impl Responder> {
-    let deck = find_deck(id).map_err(error::ErrorBadRequest)?;
+    let deck = web::block(move || find_deck(id))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(deck))
 }
 
 #[get("/deck")]
 async fn get() -> actix_web::Result<impl Responder> {
-    let result = get_decks().map_err(error::ErrorBadRequest)?;
+    let result = web::block(move || get_decks())
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(result))
 }
 
 #[get("/deck/getByName/{name}")]
 async fn get_by_name(web::Path(name): web::Path<String>) -> actix_web::Result<impl Responder> {
-    let result = find_by_name(&name).map_err(error::ErrorBadRequest)?;
+    let result = web::block(move || find_by_name(&name))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(result))
 }
 
 #[delete("/deck/{id}")]
 async fn delete(web::Path(id): web::Path<i32>) -> actix_web::Result<impl Responder> {
-    let result = delete_deck(id).map_err(error::ErrorBadRequest)?;
+    let result = web::block(move || delete_deck(id))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(result))
 }
 
 #[get("/deck/{id}/getCards")]
 async fn get_cards(web::Path(id): web::Path<i32>) -> actix_web::Result<impl Responder> {
-    let result = get_cards_by_deck(id).map_err(error::ErrorBadRequest)?;
+    let result = web::block(move || get_cards_by_deck(id))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(result))
 }
 
 #[get("/deck/{id}/getHumanizeCards")]
 async fn get_humanize_cards(web::Path(id): web::Path<i32>) -> actix_web::Result<impl Responder> {
-    let cards = get_cards_by_deck(id).map_err(error::ErrorBadRequest)?;
+    let cards = web::block(move || get_cards_by_deck(id))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(
         cards.iter()
             .map(|c| c.to_human())
@@ -64,10 +77,14 @@ async fn get_humanize_cards(web::Path(id): web::Path<i32>) -> actix_web::Result<
 
 #[put("/deck/{id}/shuffle")]
 async fn shuffle(web::Path(id): web::Path<i32>) -> actix_web::Result<impl Responder> {
-    let cards = get_cards_by_deck(id).map_err(error::ErrorBadRequest)?;
+    let cards = web::block(move || get_cards_by_deck(id))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     let mut ids = cards.iter().map(|x| x.id).collect::<Vec<i32>>();
     shuffles::hand_shuffle::shuffle(&mut ids);
-    save_card(id, ids).map_err(error::ErrorBadRequest)?;
+    web::block(move || save_card(id, ids))
+        .await
+        .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(cards))
 }
 
