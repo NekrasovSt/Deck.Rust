@@ -1,4 +1,4 @@
-use crate::models::card::{Card, NewCard};
+use crate::models::card::{NewCard};
 
 pub fn card_builder() -> Vec<NewCard> {
     let numbers: [i32; 9] = [2, 3, 4, 5, 6, 7, 8, 9, 10];

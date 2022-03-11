@@ -1,4 +1,3 @@
-use actix_web::error;
 use actix_web::http::StatusCode;
 
 pub struct Response<T> {

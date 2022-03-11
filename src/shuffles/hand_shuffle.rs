@@ -1,4 +1,3 @@
-use crate::models::card::Card;
 use rand::Rng;
 
 pub fn shuffle<T>(cards: &mut Vec<T>) where T: Clone {
