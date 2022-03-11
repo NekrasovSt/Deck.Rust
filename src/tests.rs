@@ -11,7 +11,7 @@ mod tests {
 
     #[test]
     fn hand_shuffle() {
-        let original = card_builder();
+        let mut original = card_builder();
         let mut for_shuffle = original.to_vec();
         shuffle(&mut for_shuffle);
         assert_ne!(original, for_shuffle);

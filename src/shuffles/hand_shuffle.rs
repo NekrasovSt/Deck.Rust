@@ -1,7 +1,7 @@
 use crate::models::card::Card;
 use rand::Rng;
 
-pub fn shuffle(cards: &mut Vec<Card>) {
+pub fn shuffle<T>(cards: &mut Vec<T>) where T: Clone {
     let mut rng = rand::thread_rng();
     for _ in 0..100 {
         let part_size = rng.gen_range(0..(cards.len() / 2) as usize);
@@ -13,10 +13,9 @@ pub fn shuffle(cards: &mut Vec<Card>) {
             .skip(index)
             .take(part_size)
             .map(|x| x.to_owned())
-            .collect::<Vec<Card>>();
+            .collect::<Vec<T>>();
 
         cards.drain(index..part_size + index);
-
         cards.extend(sub_range);
     }
 }

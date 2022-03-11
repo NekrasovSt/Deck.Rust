@@ -4,14 +4,16 @@ extern crate diesel;
 extern crate diesel_migrations;
 extern crate dotenv;
 
+mod shuffles;
 mod schema;
 mod models;
 mod db;
 mod services;
 mod response;
+mod tests;
 
-use actix_web::{get, post, delete, App, HttpResponse, HttpServer, Responder, web, Result, error};
-use crate::db::{add_deck, delete_deck, find_by_name, find_deck, get_cards_by_deck, get_decks, init_db};
+use actix_web::{get, post, delete, put, App, HttpResponse, HttpServer, Responder, web, Result, error};
+use crate::db::{add_deck, delete_deck, find_by_name, find_deck, get_cards_by_deck, get_decks, init_db, save_card};
 use crate::models::card::NewCard;
 use crate::models::deck::{NewDeck};
 use crate::services::card_builder;
@@ -80,6 +82,18 @@ async fn get_humanize_cards(web::Path(id): web::Path<i32>) -> impl Responder {
     }
 }
 
+#[put("/deck/{id}/shuffle")]
+async fn shuffle(web::Path(id): web::Path<i32>) -> impl Responder {
+    match get_cards_by_deck(id) {
+        Ok(cards) => {
+            let mut ids = cards.iter().map(|x| x.id).collect::<Vec<i32>>();
+            shuffles::hand_shuffle::shuffle(&mut ids);
+            save_card(id, ids);
+            Ok(web::Json(cards))
+        }
+        Err(err) => Err(error::ErrorBadRequest(err))
+    }
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -94,6 +108,7 @@ async fn main() -> std::io::Result<()> {
             .service(post)
             .service(delete)
             .service(get_humanize_cards)
+            .service(shuffle)
     })
         .bind("127.0.0.1:8080")?
         .run()

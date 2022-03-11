@@ -81,17 +81,39 @@ pub fn delete_deck(id: i32) -> Result<String, String> {
     }
 }
 
-pub fn get_cards_by_deck(deck_id: i32) -> Result<Vec<NewCard>, String> {
+pub fn get_cards_by_deck(deck_id: i32) -> Result<Vec<Card>, String> {
     use crate::db::cards::{id, suit, number, card_type};
     let connection = establish_connection();
     let result = card_decks::table.inner_join(cards::table)
-        .select((cards::suit, cards::number, cards::card_type))
+        .select((cards::suit, cards::number, cards::card_type, cards::id))
         .order(crate::db::card_decks::order)
-        .load::<(String, i32, String)>(&connection);
+        .load::<(String, i32, String, i32)>(&connection);
     match result {
-        Ok(tuples) => Ok(tuples.into_iter().map(|t| NewCard { card_type: t.2, suit: t.0, number: t.1 }).collect()),
+        Ok(tuples) => Ok(tuples.into_iter().map(|t| Card { card_type: t.2, suit: t.0, number: t.1, id: t.3 }).collect()),
         Err(_) => Err(String::from("Ошибка получения карт"))
     }
+}
+
+pub fn save_card(save_deck_id: i32, cards: Vec<i32>) -> Result<Vec<CardDecks>, String> {
+    use crate::db::card_decks::{deck_id};
+    use crate::db::card_decks::dsl::card_decks;
+
+    let links = cards.iter().enumerate().map(|(index, id)| {
+        CardDecks {
+            card_id: *id,
+            deck_id: save_deck_id,
+            order: index as i32,
+        }
+    }).collect::<Vec<CardDecks>>();
+    let connection = establish_connection();
+    connection.transaction(|| {
+        diesel::delete(card_decks.filter(crate::schema::card_decks::deck_id.eq_all(save_deck_id)))
+            .execute(&connection);
+        diesel::insert_into(crate::schema::card_decks::table)
+            .values(&links)
+            .execute(&connection)
+    }).map_err(|_| String::from("Ошибка обновления колоды."))?;
+    Ok(links)
 }
 
 
