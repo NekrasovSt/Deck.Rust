@@ -21,16 +21,16 @@ pub fn establish_connection() -> PgConnection {
         .expect(&format!("Error connecting to {}", database_url))
 }
 
-fn link(linked_deck_id: i32, connection: &PgConnection) -> Result<(), diesel::result::Error> {
+fn link_cards_to_deck(linked_deck_id: i32, connection: &PgConnection) -> Result<(), diesel::result::Error> {
     let result = crate::schema::cards::dsl::cards.load::<Card>(connection)?;
-    for (index, c) in result.iter().enumerate() {
-        diesel::insert_into(crate::schema::card_decks::table)
-            .values(CardDecks {
-                deck_id: linked_deck_id,
-                order: index as i32,
-                card_id: c.id,
-            }).execute(connection)?;
-    }
+
+    let val = result.iter().enumerate().map(|(index, c)| CardDecks {
+        deck_id: linked_deck_id,
+        order: index as i32,
+        card_id: c.id,
+    }).collect::<Vec<CardDecks>>();
+    diesel::insert_into(crate::schema::card_decks::table)
+        .values(val).execute(connection)?;
     Ok(())
 }
 
@@ -41,7 +41,7 @@ pub fn add_deck(deck_name: &String) -> Result<Deck, String> {
             name: deck_name.to_owned()
         })
         .get_result::<Deck>(&connection) {
-        Ok(new_deck) => match link(new_deck.id, &connection) {
+        Ok(new_deck) => match link_cards_to_deck(new_deck.id, &connection) {
             Ok(()) => Ok(new_deck),
             Err(err_link) => Err(format!("Ошибка добавление новой колоды: {}", err_link.to_string()))
         },
