@@ -1,4 +1,5 @@
 use std::env;
+use std::error::Error;
 use dotenv::dotenv;
 use diesel::{Connection, EqAll, insert_into, PgConnection, QueryDsl, r2d2, RunQueryDsl};
 use diesel::r2d2::{ConnectionManager};
@@ -46,25 +47,19 @@ fn link_cards_to_deck(linked_deck_id: i32, connection: &PgConnection) -> Result<
     Ok(())
 }
 
-pub fn add_deck(deck_name: &String, connection: &PgConnection) -> Result<Deck, String> {
-    match diesel::insert_into(decks::table)
+pub fn add_deck(deck_name: &String, connection: &PgConnection) -> Result<Deck, diesel::result::Error> {
+    let new_deck = diesel::insert_into(decks::table)
         .values(NewDeck {
             name: deck_name.to_owned()
         })
-        .get_result::<Deck>(connection) {
-        Ok(new_deck) => match link_cards_to_deck(new_deck.id, connection) {
-            Ok(()) => Ok(new_deck),
-            Err(err_link) => Err(format!("Ошибка добавление новой колоды: {}", err_link.to_string()))
-        },
-        Err(err) => Err(format!("Ошибка добавление новой колоды: {}", err.to_string()))
-    }
+        .get_result::<Deck>(connection)?;
+    link_cards_to_deck(new_deck.id, connection)?;
+    Ok(new_deck)
 }
 
-pub fn find_deck(id: i32, connection: &PgConnection) -> Result<Deck, String> {
-    match crate::schema::decks::dsl::decks.find(id).first(connection) {
-        Ok(deck) => Ok(deck),
-        Err(_) => Err(String::from("Колода не найдена"))
-    }
+pub fn find_deck(id: i32, connection: &PgConnection) -> Result<Deck, diesel::result::Error> {
+    let deck = crate::schema::decks::dsl::decks.find(id).first(connection)?;
+    Ok(deck)
 }
 
 pub fn get_decks(connection: &PgConnection) -> Result<Vec<Deck>, String> {
@@ -74,33 +69,26 @@ pub fn get_decks(connection: &PgConnection) -> Result<Vec<Deck>, String> {
     }
 }
 
-pub fn find_by_name(name: &String, connection: &PgConnection) -> Result<Vec<Deck>, String> {
-    match crate::schema::decks::dsl::decks.filter(crate::schema::decks::name.eq_all(name)).load::<Deck>(connection) {
-        Ok(decks) => Ok(decks),
-        Err(_) => Err(String::from("Ошибка получения колод"))
-    }
+pub fn find_by_name(name: &String, connection: &PgConnection) -> Result<Vec<Deck>, diesel::result::Error> {
+    let decks = crate::schema::decks::dsl::decks.filter(crate::schema::decks::name.eq_all(name)).load::<Deck>(connection)?;
+    Ok(decks)
 }
 
-pub fn delete_deck(id: i32, connection: &PgConnection) -> Result<String, String> {
-    match diesel::delete(crate::schema::decks::dsl::decks.find(id)).execute(connection) {
-        Ok(r) => Ok(format!("Удалено строк: {}", r)),
-        Err(_) => Err(String::from("Не удалось удалить колоду"))
-    }
+pub fn delete_deck(id: i32, connection: &PgConnection) -> Result<String, diesel::result::Error> {
+    let result = diesel::delete(crate::schema::decks::dsl::decks.find(id)).execute(connection)?;
+    Ok(format!("Удалено строк: {}", result))
 }
 
-pub fn get_cards_by_deck(deck_id: i32, connection: &PgConnection) -> Result<Vec<Card>, String> {
-    let result = card_decks::table.inner_join(cards::table)
+pub fn get_cards_by_deck(deck_id: i32, connection: &PgConnection) -> Result<Vec<Card>, diesel::result::Error> {
+    let tuples = card_decks::table.inner_join(cards::table)
         .select((cards::suit, cards::number, cards::card_type, cards::id))
         .filter(crate::schema::card_decks::deck_id.eq_all(deck_id))
         .order(crate::db::card_decks::order)
-        .load::<(String, i32, String, i32)>(connection);
-    match result {
-        Ok(tuples) => Ok(tuples.into_iter().map(|t| Card { card_type: t.2, suit: t.0, number: t.1, id: t.3 }).collect()),
-        Err(_) => Err(String::from("Ошибка получения карт"))
-    }
+        .load::<(String, i32, String, i32)>(connection)?;
+    Ok(tuples.into_iter().map(|t| Card { card_type: t.2, suit: t.0, number: t.1, id: t.3 }).collect())
 }
 
-pub fn save_card(save_deck_id: i32, cards: Vec<i32>, connection: &PgConnection) -> Result<Vec<CardDecks>, String> {
+pub fn save_card(save_deck_id: i32, cards: Vec<i32>, connection: &PgConnection) -> Result<Vec<CardDecks>, diesel::result::Error> {
     use crate::db::card_decks::dsl::card_decks;
 
     let links = cards.iter().enumerate().map(|(index, id)| {
@@ -115,24 +103,21 @@ pub fn save_card(save_deck_id: i32, cards: Vec<i32>, connection: &PgConnection) 
             .execute(connection)?;
         diesel::insert_into(crate::schema::card_decks::table)
             .values(&links)
-            .execute(connection)
-    }).map_err(|_| String::from("Ошибка обновления колоды."))?;
+            .execute(connection)?;
+        Ok(())
+    }).map_err(|err: diesel::result::Error| err)?;
     Ok(links)
 }
 
-
-pub fn init_db() -> Result<(), String> {
+pub fn init_db() -> Result<(), Box<dyn Error>> {
     let connection = establish_connection();
-    embedded_migrations::run(&connection).
-        map_err(|err| err.to_string())?;
-    let cards = crate::schema::cards::dsl::cards.load::<Card>(&connection)
-        .map_err(|err| err.to_string())?;
+    embedded_migrations::run(&connection)?;
+    let cards = crate::schema::cards::dsl::cards.load::<Card>(&connection)?;
     if cards.len() == 0 {
         let new_cards = card_builder();
         insert_into(cards::table)
             .values(new_cards)
-            .execute(&connection)
-            .map_err(|err| err.to_string())?;
+            .execute(&connection)?;
     }
     Ok(())
 }

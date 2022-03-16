@@ -1,4 +1,4 @@
-use actix_web::{error, Responder, web, delete, get, post, put, Error};
+use actix_web::{error, Responder, web, delete, get, post, put, Error, HttpResponse};
 use actix_web::web::Data;
 use diesel::{PgConnection, r2d2};
 use diesel::r2d2::{ConnectionManager, PooledConnection};
@@ -84,12 +84,15 @@ pub async fn shuffle(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> 
     let connection = get_connection(pool.clone())?;
     let cards = web::block(move || get_cards_by_deck(id, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(error::ErrorNotFound)?;
     let mut ids = cards.iter().map(|x| x.id).collect::<Vec<i32>>();
     shuffles::hand_shuffle::shuffle(&mut ids);
     let connection = get_connection(pool.clone())?;
     web::block(move || save_card(id, ids, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(|e| {
+            eprintln!("{}", e);
+            HttpResponse::InternalServerError().finish()
+        })?;
     Ok(web::Json(cards))
 }
