@@ -62,11 +62,9 @@ pub fn find_deck(id: i32, connection: &PgConnection) -> Result<Deck, diesel::res
     Ok(deck)
 }
 
-pub fn get_decks(connection: &PgConnection) -> Result<Vec<Deck>, String> {
-    match crate::schema::decks::dsl::decks.load::<Deck>(connection) {
-        Ok(decks) => Ok(decks),
-        Err(_) => Err(String::from("Ошибка получения колод"))
-    }
+pub fn get_decks(connection: &PgConnection) -> Result<Vec<Deck>, diesel::result::Error> {
+    let decks = crate::schema::decks::dsl::decks.load::<Deck>(connection)?;
+    Ok(decks)
 }
 
 pub fn find_by_name(name: &String, connection: &PgConnection) -> Result<Vec<Deck>, diesel::result::Error> {

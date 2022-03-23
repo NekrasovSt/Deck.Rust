@@ -13,6 +13,7 @@ mod services;
 mod tests;
 mod web_methods;
 mod config;
+mod errors;
 
 
 use actix_web::{App, HttpServer, middleware, web};
