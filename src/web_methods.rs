@@ -4,27 +4,27 @@ use diesel::{PgConnection, r2d2};
 use diesel::r2d2::{ConnectionManager, PooledConnection};
 use actix_web_validator::{Json};
 use crate::models::deck::NewDeck;
-use crate::shuffles;
+use crate::{AppState, shuffles};
 use crate::db::{add_deck, delete_deck, find_by_name, find_deck, get_cards_by_deck, get_decks, save_card};
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
 #[post("/deck")]
-pub async fn post(new_deck: Json<NewDeck>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn post(new_deck: Json<NewDeck>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let deck = web::block(move || add_deck(&new_deck.name, &connection))
         .await
         .map_err(error::ErrorBadRequest)?;
     Ok(web::Json(deck))
 }
 
-fn get_connection(pool: Data<DbPool>) -> Result<PooledConnection<ConnectionManager<PgConnection>>, Error> {
+fn get_connection(pool: DbPool) -> Result<PooledConnection<ConnectionManager<PgConnection>>, Error> {
     pool.get().map_err(|_| error::ErrorBadRequest(String::from("Ошибка подключения к БД.")))
 }
 
 #[get("/deck/{id}")]
-pub async fn get_id(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn get_id(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let deck = web::block(move || find_deck(id, &connection))
         .await
         .map_err(error::ErrorBadRequest)?;
@@ -32,8 +32,8 @@ pub async fn get_id(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> a
 }
 
 #[get("/deck")]
-pub async fn get(pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn get(state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || get_decks(&connection))
         .await
         .map_err(error::ErrorBadRequest)?;
@@ -41,8 +41,8 @@ pub async fn get(pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
 }
 
 #[get("/deck/getByName/{name}")]
-pub async fn get_by_name(web::Path(name): web::Path<String>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn get_by_name(web::Path(name): web::Path<String>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || find_by_name(&name, &connection))
         .await
         .map_err(error::ErrorBadRequest)?;
@@ -50,8 +50,8 @@ pub async fn get_by_name(web::Path(name): web::Path<String>, pool: web::Data<DbP
 }
 
 #[delete("/deck/{id}")]
-pub async fn delete(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn delete(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || delete_deck(id, &connection))
         .await
         .map_err(error::ErrorBadRequest)?;
@@ -59,8 +59,8 @@ pub async fn delete(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> a
 }
 
 #[get("/deck/{id}/getCards")]
-pub async fn get_cards(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn get_cards(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || get_cards_by_deck(id, &connection))
         .await
         .map_err(error::ErrorBadRequest)?;
@@ -68,8 +68,8 @@ pub async fn get_cards(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -
 }
 
 #[get("/deck/{id}/getHumanizeCards")]
-pub async fn get_humanize_cards(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool)?;
+pub async fn get_humanize_cards(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let cards = web::block(move || get_cards_by_deck(id, &connection))
         .await
         .map_err(error::ErrorBadRequest)?;
@@ -80,14 +80,14 @@ pub async fn get_humanize_cards(web::Path(id): web::Path<i32>, pool: web::Data<D
 }
 
 #[put("/deck/{id}/shuffle")]
-pub async fn shuffle(web::Path(id): web::Path<i32>, pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
-    let connection = get_connection(pool.clone())?;
+pub async fn shuffle(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -> actix_web::Result<impl Responder> {
+    let connection = get_connection(state.pool.clone())?;
     let cards = web::block(move || get_cards_by_deck(id, &connection))
         .await
         .map_err(error::ErrorNotFound)?;
     let mut ids = cards.iter().map(|x| x.id).collect::<Vec<i32>>();
     shuffles::hand_shuffle::shuffle(&mut ids);
-    let connection = get_connection(pool.clone())?;
+    let connection = get_connection(state.pool.clone())?;
     web::block(move || save_card(id, ids, &connection))
         .await
         .map_err(|e| {
