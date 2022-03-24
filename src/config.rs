@@ -8,5 +8,5 @@ pub fn configure_log() -> Logger {
     let console_drain = slog_term::FullFormat::new(decorator).build().fuse();
     // let console_drain = slog_envlogger::new(console_drain);
     let console_drain = slog_async::Async::new(console_drain).build().fuse();
-    slog::Logger::root(console_drain, o!())
+    slog::Logger::root(console_drain, o!("v" => env!("CARGO_PKG_VERSION")))
 }

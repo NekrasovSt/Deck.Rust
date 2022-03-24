@@ -3,7 +3,9 @@ use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError};
 use actix_web::error::BlockingError;
 use diesel::r2d2;
+use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error;
+use diesel::result::Error::DatabaseError;
 use serde::{Serialize};
 
 #[derive(Debug)]
@@ -28,10 +30,15 @@ impl AppError {
             } => message.clone(),
             AppError {
                 message: None,
+                error_type: AppErrorType::NotUniqueValue,
+                ..
+            } => "Указанное значение не уникально".to_string(),
+            AppError {
+                message: None,
                 error_type: AppErrorType::NotFoundError,
                 ..
             } => "The requested item was not found".to_string(),
-            _ => "An unexpected error has occurred".to_string(),
+            _ => "Произошла ошибка".to_string(),
         }
     }
 }
@@ -48,6 +55,15 @@ impl From<r2d2::PoolError> for AppError {
 
 impl From<Error> for AppError {
     fn from(error: Error) -> AppError {
+        if let DatabaseError(kind, _) = error {
+            if let UniqueViolation = kind {
+                return AppError {
+                    message: None,
+                    cause: Some(error.to_string()),
+                    error_type: AppErrorType::NotUniqueValue
+                }
+            }
+        }
         AppError {
             message: None,
             cause: Some(error.to_string()),

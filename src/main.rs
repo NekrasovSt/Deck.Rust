@@ -31,9 +31,7 @@ async fn main() -> std::io::Result<()> {
     init_db().expect("Неудалось создать БД");
 
     let address = "127.0.0.1:8080";
-    info!(
-        log,
-        "Starting server at http://{}", address);
+    info!(log, "Запуск сервера http://{}", address);
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(AppState {

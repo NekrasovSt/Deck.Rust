@@ -28,7 +28,7 @@ pub async fn post(new_deck: Json<NewDeck>, state: web::Data<AppState>) -> actix_
     let connection = get_connection(state.pool.clone())?;
     let deck = web::block(move || add_deck(&new_deck.name, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(deck))
 }
 
@@ -41,7 +41,7 @@ pub async fn get_id(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -
     let connection = get_connection(state.pool.clone())?;
     let deck = web::block(move || find_deck(id, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(deck))
 }
 
@@ -59,7 +59,7 @@ pub async fn get_by_name(web::Path(name): web::Path<String>, state: web::Data<Ap
     let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || find_by_name(&name, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(result))
 }
 
@@ -68,7 +68,7 @@ pub async fn delete(web::Path(id): web::Path<i32>, state: web::Data<AppState>) -
     let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || delete_deck(id, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(result))
 }
 
@@ -77,7 +77,7 @@ pub async fn get_cards(web::Path(id): web::Path<i32>, state: web::Data<AppState>
     let connection = get_connection(state.pool.clone())?;
     let result = web::block(move || get_cards_by_deck(id, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(result))
 }
 
@@ -86,7 +86,7 @@ pub async fn get_humanize_cards(web::Path(id): web::Path<i32>, state: web::Data<
     let connection = get_connection(state.pool.clone())?;
     let cards = web::block(move || get_cards_by_deck(id, &connection))
         .await
-        .map_err(error::ErrorBadRequest)?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(
         cards.iter()
             .map(|c| c.to_human())
@@ -98,15 +98,12 @@ pub async fn shuffle(web::Path(id): web::Path<i32>, state: web::Data<AppState>) 
     let connection = get_connection(state.pool.clone())?;
     let cards = web::block(move || get_cards_by_deck(id, &connection))
         .await
-        .map_err(error::ErrorNotFound)?;
+        .map_err(log_error(state.log.clone()))?;
     let mut ids = cards.iter().map(|x| x.id).collect::<Vec<i32>>();
     shuffles::hand_shuffle::shuffle(&mut ids);
     let connection = get_connection(state.pool.clone())?;
     web::block(move || save_card(id, ids, &connection))
         .await
-        .map_err(|e| {
-            eprintln!("{}", e);
-            HttpResponse::InternalServerError().finish()
-        })?;
+        .map_err(log_error(state.log.clone()))?;
     Ok(web::Json(cards))
 }
